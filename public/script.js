@@ -604,8 +604,15 @@ function showResult() {
       // 親批結果區（初始隱藏）
       '<div id="premiumResult" style="display:none;margin-top:22px;padding:20px;' +
       'background:rgba(212,175,55,0.03);border:1px solid rgba(212,175,55,0.12);' +
-      'border-radius:12px;"></div>';
+      'border-radius:12px;"></div>' +
 
+      // 保存截圖提醒（初始隱藏，親批結果出現時一起顯示）
+      '<div id="saveReminder" style="display:none;margin-top:16px;padding:14px 18px;' +
+      'background:rgba(212,175,55,0.06);border:1px dashed rgba(212,175,55,0.3);' +
+      'border-radius:10px;text-align:center;">' +
+        '<p style="color:#d4af37;font-size:15px;font-weight:bold;margin-bottom:6px;">📸 請截圖保存您的親批結果</p>' +
+        '<p style="color:#999;font-size:12px;line-height:1.6;">此為一次性專屬批算內容，<br>離開頁面後將無法再次查看，請務必保存圖片。</p>' +
+      '</div>';
   } else {
     resultDiv.innerHTML = '<p style="color:#999;text-align:center;">此卦象暫無解讀資料。</p>';
   }
