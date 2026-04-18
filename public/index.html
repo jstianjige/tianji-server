@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>荊叔天機閣 — 易經卜卦</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- 星空背景 -->
+  <div id="stars"></div>
+
+  <!-- 左側卦象裝飾 -->
+  <div class="side-deco left">
+    <div class="deco-yang"></div>
+    <div class="deco-yin"><span></span><span></span></div>
+    <div class="deco-yang"></div>
+    <div class="deco-yin"><span></span><span></span></div>
+    <div class="deco-yang"></div>
+    <div class="deco-yin"><span></span><span></span></div>
+  </div>
+  <!-- 右側卦象裝飾 -->
+  <div class="side-deco right">
+    <div class="deco-yang"></div>
+    <div class="deco-yin"><span></span><span></span></div>
+    <div class="deco-yang"></div>
+    <div class="deco-yin"><span></span><span></span></div>
+    <div class="deco-yang"></div>
+    <div class="deco-yin"><span></span><span></span></div>
+  </div>
+
+  <!-- 主容器 -->
+  <div class="container">
+
+    <!-- LOGO 區 -->
+    <div class="logo-section">
+      <div class="logo-icon">☯</div>
+      <h1 class="logo-title">荊 叔 天 機 閣</h1>
+      <p class="logo-subtitle">易 經 八 卦 ・ 八 字 紫 微 ・ 三 十 年 為 人 指 點 迷 津</p>
+      <p class="logo-motto">✦ 天 機 不 可 不 問 ✦</p>
+    </div>
+
+    <!-- ===== 第一步：輸入資料 ===== -->
+    <div id="step1" class="card">
+      <div class="card-header">
+        <h2>🙏 請先告訴荊叔一些基本資料</h2>
+      </div>
+      <p class="card-desc">越詳細越能準確卜卦，莫要敷衍了事</p>
+
+      <div class="form-group">
+        <label for="zodiac">你的生肖</label>
+        <select id="zodiac">
+          <option value="">請選擇生肖</option>
+          <option value="鼠">鼠</option>
+          <option value="牛">牛</option>
+          <option value="虎">虎</option>
+          <option value="兔">兔</option>
+          <option value="龍">龍</option>
+          <option value="蛇">蛇</option>
+          <option value="馬">馬</option>
+          <option value="羊">羊</option>
+          <option value="猴">猴</option>
+          <option value="雞">雞</option>
+          <option value="狗">狗</option>
+          <option value="豬">豬</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="age">你的歲數</label>
+        <input type="number" id="age" min="1" max="120" placeholder="請輸入歲數">
+      </div>
+
+      <div class="form-group">
+        <label for="question">你想問什麼？</label>
+        <textarea id="question" rows="4" placeholder="例如：我今年的財運如何？這份工作該不該換？跟他還有沒有可能？&#10;&#10;越詳細越好，荊叔才能幫你看得更準"></textarea>
+      </div>
+
+      <button class="btn-primary" onclick="startDivine()">開 始 卜 卦</button>
+    </div>
+
+    <!-- ===== 第二步：擲銅錢 ===== -->
+    <div id="step2" class="card" style="display:none;">
+      <div class="card-header">
+        <h2>🪙 擲銅錢成卦</h2>
+      </div>
+      <p class="card-desc">心中默念你的問題，每次點擊擲出三枚銅錢，共六次成卦</p>
+
+      <div class="coin-area">
+        <div class="coin">㊀</div>
+        <div class="coin">㊀</div>
+        <div class="coin">㊀</div>
+      </div>
+
+      <div id="throwResult" class="throw-result"></div>
+      <div id="hexagramLines" class="hexagram-build"></div>
+      <div class="progress-info">已擲 <span id="throwCount">0</span> / 6 爻</div>
+
+      <button id="throwBtn" class="btn-primary" onclick="throwCoins()">擲第 1 爻</button>
+    </div>
+
+    <!-- ===== 第三步：結果 ===== -->
+    <div id="step3" class="card" style="display:none;">
+      <div class="card-header">
+        <h2>☯ 卦象解讀</h2>
+      </div>
+
+      <div id="hexagramName" class="hex-name"></div>
+      <div id="hexagramDisplay" class="hexagram-display"></div>
+      <div id="aiResult" class="result-area"></div>
+
+      <button class="btn-secondary" onclick="resetAll()">重新卜卦</button>
+    </div>
+
+    <!-- 頁尾格言 -->
+    <div class="footer-motto">✧ 天 機 閣 — 命 裡 有 時 終 須 問 ✧</div>
+
+    <!-- 頁尾 -->
+    <div class="footer">
+      <p class="footer-email">📧 聯絡信箱：<a href="mailto:jstianjige22@gmail.com">jstianjige22@gmail.com</a></p>
+      <p class="footer-copy">© 2026 荊叔天機閣 All Rights Reserved. | 玄學諮詢・命理分析・開運指引</p>
+    </div>
+
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
