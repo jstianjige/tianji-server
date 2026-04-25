@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>荊叔親批結果</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background:#0a0a0f;
+    color:#e8e0d0;
+    font-family:'Microsoft JhengHei','PingFang TC',sans-serif;
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    padding:20px;
+  }
+  .container {
+    max-width:480px;
+    width:100%;
+    text-align:center;
+  }
+  .title {
+    color:#d4af37;
+    font-size:22px;
+    margin-bottom:20px;
+    letter-spacing:3px;
+  }
+  .status {
+    color:#999;
+    font-size:14px;
+    margin-bottom:24px;
+  }
+  .result-box {
+    background:rgba(212,175,55,0.03);
+    border:1px solid rgba(212,175,55,0.12);
+    border-radius:12px;
+    padding:24px;
+    text-align:left;
+    line-height:1.9;
+    font-size:15px;
+    color:#e8e0d0;
+    min-height:100px;
+    white-space:pre-wrap;
+  }
+  .loading {
+    color:#d4af37;
+    font-size:16px;
+    animation:pulse 1.5s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity:1; }
+    50% { opacity:0.4; }
+  }
+  .save-tip {
+    margin-top:20px;
+    padding:14px 18px;
+    background:rgba(212,175,55,0.06);
+    border:1px dashed rgba(212,175,55,0.3);
+    border-radius:10px;
+    text-align:center;
+    display:none;
+  }
+  .save-tip p:first-child {
+    color:#d4af37;
+    font-size:15px;
+    font-weight:bold;
+    margin-bottom:6px;
+  }
+  .save-tip p:last-child {
+    color:#999;
+    font-size:12px;
+    line-height:1.6;
+  }
+  .back-btn {
+    display:inline-block;
+    margin-top:24px;
+    padding:12px 36px;
+    background:linear-gradient(135deg,#b8960c,#d4af37);
+    color:#1a1a2e;
+    border:none;
+    border-radius:8px;
+    font-size:15px;
+    font-weight:bold;
+    cursor:pointer;
+    text-decoration:none;
+  }
+  .error { color:#ff6b6b; }
+</style>
+</head>
+<body>
+<div class="container">
+  <p class="title">🔮 荊 叔 親 批</p>
+  <p class="status" id="status">正在確認付款狀態...</p>
+  <div class="result-box" id="resultBox">
+    <p class="loading" id="loading">⏳ 請稍候，荊叔正在為你批算...</p>
+  </div>
+  <div class="save-tip" id="saveTip">
+    <p>📸 請截圖保存您的親批結果</p>
+    <p>此為一次性專屬批算內容，<br>離開頁面後將無法再次查看</p>
+  </div>
+  <a class="back-btn" href="/" id="backBtn" style="display:none;">再問一卦</a>
+</div>
+
+<script>
+var tradeNo = new URLSearchParams(window.location.search).get('trade');
+var statusEl = document.getElementById('status');
+var resultBox = document.getElementById('resultBox');
+var loadingEl = document.getElementById('loading');
+var saveTip = document.getElementById('saveTip');
+var backBtn = document.getElementById('backBtn');
+var checkCount = 0;
+
+function checkPayment() {
+  checkCount++;
+  fetch('/api/check-payment/' + tradeNo)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.paid) {
+        statusEl.textContent = '✅ 付款成功！荊叔正在親批...';
+        getPremiumResult(data.hexagramData);
+      } else if (checkCount < 60) {
+        statusEl.textContent = '等待付款確認中... (' + checkCount + ')';
+        setTimeout(checkPayment, 3000);
+      } else {
+        statusEl.textContent = '⚠️ 付款確認逾時';
+        loadingEl.textContent = '請聯繫客服確認付款狀態';
+        loadingEl.className = 'error';
+        backBtn.style.display = 'inline-block';
+      }
+    })
+    .catch(function() {
+      statusEl.textContent = '❌ 查詢失敗，請重新整理頁面';
+      loadingEl.textContent = '';
+      backBtn.style.display = 'inline-block';
+    });
+}
+
+function getPremiumResult(hexagramData) {
+  loadingEl.textContent = '⏳ 荊叔正在為你深度批算...';
+  fetch('/api/premium-stream', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userMessage: hexagramData })
+  }).then(function(response) {
+    var reader = response.body.getReader();
+    var decoder = new TextDecoder();
+    var result = '';
+    loadingEl.style.display = 'none';
+
+    function read() {
+      reader.read().then(function(obj) {
+        if (obj.done) {
+          statusEl.textContent = '🔮 親批完成';
+          saveTip.style.display = 'block';
+          backBtn.style.display = 'inline-block';
+          return;
+        }
+        var lines = decoder.decode(obj.value).split('\n');
+        for (var i = 0; i < lines.length; i++) {
+          var line = lines[i].trim();
+          if (line.startsWith('data: ')) {
+            var content = line.slice(6);
+            if (content === '[DONE]') {
+              statusEl.textContent = '🔮 親批完成';
+              saveTip.style.display = 'block';
+              backBtn.style.display = 'inline-block';
+              return;
+            }
+            try {
+              var parsed = JSON.parse(content);
+              if (parsed.content) {
+                result += parsed.content;
+                resultBox.textContent = result;
+              }
+              if (parsed.error) {
+                resultBox.textContent = parsed.error;
+                resultBox.className = 'result-box error';
+              }
+            } catch(e) {}
+          }
+        }
+        read();
+      });
+    }
+    read();
+  }).catch(function() {
+    loadingEl.textContent = '批算過程發生錯誤，請聯繫客服';
+    loadingEl.className = 'error';
+    backBtn.style.display = 'inline-block';
+  });
+}
+
+if (tradeNo) {
+  checkPayment();
+} else {
+  statusEl.textContent = '⚠️ 無效的訂單';
+  loadingEl.textContent = '請從卜卦頁面重新操作';
+  loadingEl.className = 'error';
+  backBtn.style.display = 'inline-block';
+}
+</script>
+</body>
+</html>

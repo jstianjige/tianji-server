@@ -642,28 +642,18 @@ function showResult() {
     + '請根據以上卦象，結合求卦者的生肖與歲數，為其深度解卦。';
 }
 
-// ========== 荊叔親批 NT$29（暫時擋住，等金流串好再開放） ==========
+// ========= 荊叔親批 NT$29 付款 =========
 function requestPremium() {
-  var overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:9999;';
-
-  var box = document.createElement('div');
-  box.style.cssText = 'background:#1a1a2e;border:1px solid rgba(212,175,55,0.3);border-radius:16px;padding:30px 24px;max-width:320px;text-align:center;margin:0 16px;';
-  box.innerHTML =
-    '<p style="font-size:32px;margin-bottom:12px;">🔮</p>' +
-    '<p style="color:#d4af37;font-size:18px;font-weight:bold;margin-bottom:12px;">荊叔親批 NT$29即將開放</p>' +
-    '<p style="color:#bbb;font-size:14px;line-height:1.8;margin-bottom:20px;">' +
-      '付款功能正在準備中，<br>預計近日正式上線，敬請期待～<br><br>' +
-      '<span style="color:#d4af37;">届時荊叔將為你親自批算，<br>給出最深入的專屬解析！</span>' +
-    '</p>' +
-    '<button onclick="this.parentElement.parentElement.remove()" ' +
-    'style="background:linear-gradient(135deg,#b8960c,#d4af37);color:#1a1a2e;border:none;' +
-    'padding:10px 30px;border-radius:8px;font-size:15px;font-weight:bold;cursor:pointer;">' +
-    '好的，我等著</button>';
-
-  overlay.appendChild(box);
-  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
-  document.body.appendChild(overlay);
+  var form = document.createElement('form');
+  form.method = 'POST';
+  form.action = '/api/create-payment';
+  var input = document.createElement('input');
+  input.type = 'hidden';
+  input.name = 'hexagramData';
+  input.value = pendingMessage;
+  form.appendChild(input);
+  document.body.appendChild(form);
+  form.submit();
 }
 
 // ========== 重置 ==========

@@ -2,10 +2,12 @@ const express = require('express');
 const cors = require('cors');
 const OpenAI = require('openai');
 require('dotenv').config();
+const crypto = require('crypto');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
 const client = new OpenAI({
@@ -76,6 +78,94 @@ app.post('/api/premium-stream', async (req, res) => {
     console.error('親批錯誤:', error.message);
     res.write(`data: ${JSON.stringify({ error: '荊叔暫時離開座位，請稍後再試' })}\n\n`);
     res.end();
+  }
+});
+
+// ====== 綠界金流 ======
+const orderStore = new Map();
+
+function generateCheckMacValue(params) {
+  const sorted = Object.keys(params).sort((a, b) =>
+    a.toLowerCase().localeCompare(b.toLowerCase())
+  );
+  let raw = `HashKey=${process.env.ECPAY_HASH_KEY}`;
+  sorted.forEach(key => { raw += `&${key}=${params[key]}`; });
+  raw += `&HashIV=${process.env.ECPAY_HASH_IV}`;
+
+  let encoded = encodeURIComponent(raw)
+    .replace(/%20/g, '+')
+    .replace(/\!/g, '%21')
+    .replace(/\'/g, '%27')
+    .replace(/\(/g, '%28')
+    .replace(/\)/g, '%29')
+    .replace(/\*/g, '%2A');
+  encoded = encoded.toLowerCase();
+
+  return crypto.createHash('sha256').update(encoded).digest('hex').toUpperCase();
+}
+
+// 建立付款訂單
+app.post('/api/create-payment', (req, res) => {
+  const { hexagramData } = req.body;
+  const now = new Date();
+  const tradeNo = 'TJ' + String(now.getTime()).slice(-14) +
+    String(Math.floor(Math.random() * 999)).padStart(3, '0');
+  const pad = n => String(n).padStart(2, '0');
+  const tradeDate = `${now.getFullYear()}/${pad(now.getMonth()+1)}/${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+
+  orderStore.set(tradeNo, { hexagramData, paid: false, createdAt: Date.now() });
+
+  const params = {
+    MerchantID: process.env.ECPAY_MERCHANT_ID,
+    MerchantTradeNo: tradeNo,
+    MerchantTradeDate: tradeDate,
+    PaymentType: 'aio',
+    TotalAmount: '29',
+    TradeDesc: '荊叔天機閣親批服務',
+    ItemName: '荊叔親批深度解卦',
+    ReturnURL: 'https://jstianjige.com/api/ecpay-notify',
+    ClientBackURL: 'https://jstianjige.com/payment-result.html?trade=' + tradeNo,
+    ChoosePayment: 'ALL',
+    IgnorePayment: 'CVS#BARCODE#WebATM',
+    EncryptType: 1
+  };
+
+  params.CheckMacValue = generateCheckMacValue(params);
+
+  let html = '<html><body><form id="f" method="post" action="https://payment.ecpay.com.tw/Cashier/AioCheckOut/V5">';
+  Object.entries(params).forEach(([k, v]) => {
+    html += '<input type="hidden" name="' + k + '" value="' + v + '">';
+  });
+  html += '</form><script>document.getElementById("f").submit();</script></body></html>';
+
+  res.send(html);
+});
+
+// 綠界付款通知（伺服器對伺服器）
+app.post('/api/ecpay-notify', (req, res) => {
+  const data = req.body;
+  const checkMac = data.CheckMacValue;
+  const params = { ...data };
+  delete params.CheckMacValue;
+
+  if (checkMac === generateCheckMacValue(params) && data.RtnCode === '1') {
+    const order = orderStore.get(data.MerchantTradeNo);
+    if (order) order.paid = true;
+    console.log('✅ 付款成功:', data.MerchantTradeNo);
+    res.send('1|OK');
+  } else {
+    console.log('❌ 付款驗證失敗');
+    res.send('0|FAIL');
+  }
+});
+
+// 查詢付款狀態
+app.get('/api/check-payment/:tradeNo', (req, res) => {
+  const order = orderStore.get(req.params.tradeNo);
+  if (order && order.paid) {
+    res.json({ paid: true, hexagramData: order.hexagramData });
+  } else {
+    res.json({ paid: false });
   }
 });
 
