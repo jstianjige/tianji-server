@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>荊叔天機閣 - 管理後台</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Microsoft JhengHei', sans-serif;
+    background: #0a0a0f;
+    color: #e0e0e0;
+    min-height: 100vh;
+    padding: 20px;
+  }
+  .login-box {
+    max-width: 400px;
+    margin: 100px auto;
+    text-align: center;
+  }
+  .login-box h1 {
+    color: #ffd700;
+    margin-bottom: 20px;
+    font-size: 24px;
+  }
+  .login-box input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ffd700;
+    background: #1a1a2e;
+    color: #fff;
+    border-radius: 8px;
+    font-size: 16px;
+    margin-bottom: 15px;
+  }
+  .login-box button {
+    width: 100%;
+    padding: 12px;
+    background: linear-gradient(135deg, #ffd700, #ff8c00);
+    color: #000;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  .error { color: #ff5252; margin-top: 10px; }
+  .dashboard { display: none; max-width: 800px; margin: 0 auto; }
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    margin-bottom: 30px;
+  }
+  .stat-card {
+    background: #1a1a2e;
+    border: 1px solid #ffd700;
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+  }
+  .stat-card .number {
+    font-size: 32px;
+    color: #ffd700;
+    font-weight: bold;
+  }
+  .stat-card .label {
+    font-size: 14px;
+    color: #aaa;
+    margin-top: 5px;
+  }
+  h2 { color: #ffd700; margin-bottom: 15px; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #1a1a2e;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  th {
+    background: #2a2a4e;
+    color: #ffd700;
+    padding: 12px;
+    text-align: left;
+    font-size: 14px;
+  }
+  td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #2a2a4e;
+    font-size: 13px;
+  }
+  .paid { color: #4caf50; font-weight: bold; }
+  .unpaid { color: #ff5252; }
+</style>
+</head>
+<body>
+
+<div class="login-box" id="loginBox">
+  <h1>🔐 荊叔天機閣 管理後台</h1>
+  <input type="password" id="password" placeholder="請輸入管理密碼" onkeypress="if(event.key==='Enter')login()">
+  <button onclick="login()">登入</button>
+  <div class="error" id="error"></div>
+</div>
+
+<div class="dashboard" id="dashboard">
+  <h2>📊 營運總覽</h2>
+  <div class="stats">
+    <div class="stat-card">
+      <div class="number" id="totalOrders">0</div>
+      <div class="label">總訂單數</div>
+    </div>
+    <div class="stat-card">
+      <div class="number" id="paidOrders">0</div>
+      <div class="label">已付款</div>
+    </div>
+    <div class="stat-card">
+      <div class="number" id="totalRevenue">$0</div>
+      <div class="label">總營收</div>
+    </div>
+  </div>
+
+  <h2>📋 訂單列表</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>訂單編號</th>
+        <th>狀態</th>
+        <th>金額</th>
+        <th>建立時間</th>
+        <th>付款時間</th>
+      </tr>
+    </thead>
+    <tbody id="orderList"></tbody>
+  </table>
+</div>
+
+<script>
+async function login() {
+  const pwd = document.getElementById('password').value;
+  if (!pwd) return;
+
+  try {
+    const res = await fetch('/api/admin/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pwd })
+    });
+
+    if (!res.ok) {
+      document.getElementById('error').textContent = '❌ 密碼錯誤';
+      return;
+    }
+
+    const data = await res.json();
+    showDashboard(data);
+  } catch (err) {
+    document.getElementById('error').textContent = '❌ 連線失敗';
+  }
+}
+
+function showDashboard(data) {
+  document.getElementById('loginBox').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+
+  document.getElementById('totalOrders').textContent = data.stats.totalOrders;
+  document.getElementById('paidOrders').textContent = data.stats.paidOrders;
+  document.getElementById('totalRevenue').textContent = '$' + data.stats.totalRevenue;
+
+  const tbody = document.getElementById('orderList');
+  tbody.innerHTML = '';
+
+  data.orders.forEach(order => {
+    const tr = document.createElement('tr');
+    const created = new Date(order.createdAt).toLocaleString('zh-TW');
+    const paidTime = order.paidAt ? new Date(order.paidAt).toLocaleString('zh-TW') : '-';
+    const status = order.paid
+      ? '<span class="paid">✅ 已付款</span>'
+      : '<span class="unpaid">⏳ 未付款</span>';
+
+    tr.innerHTML = `
+      <td>${order.tradeNo}</td>
+      <td>${status}</td>
+      <td>$${order.amount}</td>
+      <td>${created}</td>
+      <td>${paidTime}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+</script>
+
+</body>
+</html>

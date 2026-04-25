@@ -3,12 +3,30 @@ const cors = require('cors');
 const OpenAI = require('openai');
 require('dotenv').config();
 const crypto = require('crypto');
+const mongoose = require('mongoose');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
+
+// ===== MongoDB 連線 =====
+mongoose.connect(process.env.MONGODB_URI, { dbName: 'tianji' })
+  .then(() => console.log('✅ MongoDB 連線成功'))
+  .catch(err => console.log('❌ MongoDB 連線失敗:', err.message));
+
+// 訂單 Schema
+const orderSchema = new mongoose.Schema({
+  tradeNo: { type: String, required: true, unique: true },
+  hexagramData: { type: Object },
+  paid: { type: Boolean, default: false },
+  amount: { type: Number, default: 29 },
+  createdAt: { type: Date, default: Date.now },
+  paidAt: { type: Date }
+});
+
+const Order = mongoose.model('Order', orderSchema);
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
@@ -82,8 +100,6 @@ app.post('/api/premium-stream', async (req, res) => {
 });
 
 // ====== 綠界金流 ======
-const orderStore = new Map();
-
 function generateCheckMacValue(params) {
   const sorted = Object.keys(params).sort((a, b) =>
     a.toLowerCase().localeCompare(b.toLowerCase())
@@ -105,7 +121,7 @@ function generateCheckMacValue(params) {
 }
 
 // 建立付款訂單
-app.post('/api/create-payment', (req, res) => {
+app.post('/api/create-payment', async (req, res) => {
   const { hexagramData } = req.body;
   const now = new Date();
   const tradeNo = 'TJ' + String(now.getTime()).slice(-14) +
@@ -113,7 +129,18 @@ app.post('/api/create-payment', (req, res) => {
   const pad = n => String(n).padStart(2, '0');
   const tradeDate = `${now.getFullYear()}/${pad(now.getMonth()+1)}/${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
 
-  orderStore.set(tradeNo, { hexagramData, paid: false, createdAt: Date.now() });
+  // 存進 MongoDB
+  try {
+    const order = new Order({
+      tradeNo: tradeNo,
+      hexagramData: hexagramData,
+      paid: false
+    });
+    await order.save();
+    console.log('📦 訂單已建立:', tradeNo);
+  } catch (err) {
+    console.error('訂單建立失敗:', err.message);
+  }
 
   const params = {
     MerchantID: process.env.ECPAY_MERCHANT_ID,
@@ -142,16 +169,22 @@ app.post('/api/create-payment', (req, res) => {
 });
 
 // 綠界付款通知（伺服器對伺服器）
-app.post('/api/ecpay-notify', (req, res) => {
+app.post('/api/ecpay-notify', async (req, res) => {
   const data = req.body;
   const checkMac = data.CheckMacValue;
   const params = { ...data };
   delete params.CheckMacValue;
 
   if (checkMac === generateCheckMacValue(params) && data.RtnCode === '1') {
-    const order = orderStore.get(data.MerchantTradeNo);
-    if (order) order.paid = true;
-    console.log('✅ 付款成功:', data.MerchantTradeNo);
+    try {
+      await Order.findOneAndUpdate(
+        { tradeNo: data.MerchantTradeNo },
+        { paid: true, paidAt: new Date() }
+      );
+      console.log('✅ 付款成功:', data.MerchantTradeNo);
+    } catch (err) {
+      console.error('更新訂單失敗:', err.message);
+    }
     res.send('1|OK');
   } else {
     console.log('❌ 付款驗證失敗');
@@ -160,12 +193,37 @@ app.post('/api/ecpay-notify', (req, res) => {
 });
 
 // 查詢付款狀態
-app.get('/api/check-payment/:tradeNo', (req, res) => {
-  const order = orderStore.get(req.params.tradeNo);
-  if (order && order.paid) {
-    res.json({ paid: true, hexagramData: order.hexagramData });
-  } else {
+app.get('/api/check-payment/:tradeNo', async (req, res) => {
+  try {
+    const order = await Order.findOne({ tradeNo: req.params.tradeNo });
+    if (order && order.paid) {
+      res.json({ paid: true, hexagramData: order.hexagramData });
+    } else {
+      res.json({ paid: false });
+    }
+  } catch (err) {
     res.json({ paid: false });
+  }
+});
+
+// ===== 管理後台 API =====
+const ADMIN_PASSWORD = 'tianjiMAXloui666';
+
+app.post('/api/admin/orders', async (req, res) => {
+  const { password } = req.body;
+  if (password !== ADMIN_PASSWORD) {
+    return res.status(401).json({ error: '密碼錯誤' });
+  }
+  try {
+    const orders = await Order.find().sort({ createdAt: -1 });
+    const stats = {
+      totalOrders: orders.length,
+      paidOrders: orders.filter(o => o.paid).length,
+      totalRevenue: orders.filter(o => o.paid).length * 29
+    };
+    res.json({ orders, stats });
+  } catch (err) {
+    res.status(500).json({ error: '查詢失敗' });
   }
 });
 
